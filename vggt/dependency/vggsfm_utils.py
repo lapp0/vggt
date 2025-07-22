@@ -102,7 +102,7 @@ def generate_rank_by_dino(
     similarity_sum = similarity_matrix.sum(dim=1)
 
     # Find the most common frame
-    most_common_frame_index = torch.argmax(similarity_sum).item()
+    most_common_frame_index = torch.argmax(similarity_sum)
 
     # Conduct FPS sampling starting from the most common frame
     fps_idx = farthest_point_sampling(distance_matrix, query_frame_num, most_common_frame_index)
