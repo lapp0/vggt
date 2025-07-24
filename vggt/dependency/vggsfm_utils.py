@@ -49,7 +49,7 @@ def build_vggsfm_tracker(model_path=None):
 
 
 def generate_rank_by_dino(
-    images, query_frame_num, image_size=336, model_name="dinov2_vitb14_reg", device="cuda", spatial_similarity=False
+    dino_v2_model, images, query_frame_num, image_size=336, device="cuda", spatial_similarity=False
 ):
     """
     Generate a ranking of frames using DINO ViT features.
@@ -67,11 +67,6 @@ def generate_rank_by_dino(
     """
     # Resize images to the target size
     images = F.interpolate(images, (image_size, image_size), mode="bilinear", align_corners=False)
-
-    # Load DINO model
-    dino_v2_model = torch.hub.load("facebookresearch/dinov2", model_name)
-    dino_v2_model.eval()
-    dino_v2_model = dino_v2_model.to(device)
 
     # Normalize images using ResNet normalization
     resnet_mean = torch.tensor(_RESNET_MEAN, device=device).view(1, 3, 1, 1)
@@ -129,25 +124,29 @@ def farthest_point_sampling(distance_matrix, num_samples, most_common_frame_inde
     """
     distance_matrix = distance_matrix.clamp(min=0)
     N = distance_matrix.size(0)
+    num_samples = min(num_samples, N)
 
-    # Initialize with the most common frame
-    selected_indices = [most_common_frame_index]
-    check_distances = distance_matrix[selected_indices]
+    selected_indices = [torch.as_tensor(most_common_frame_index, dtype=torch.long, device=distance_matrix.device)]
+
+    # make it 1-D immediately (originally you took a 2-D slice first time)
+    check_distances = distance_matrix[selected_indices[0]].clone()
 
     while len(selected_indices) < num_samples:
         # Find the farthest point from the current set of selected points
         farthest_point = torch.argmax(check_distances)
-        selected_indices.append(farthest_point.item())
+        selected_indices.append(farthest_point)
 
-        check_distances = distance_matrix[farthest_point]
-        # Mark already selected points to avoid selecting them again
-        check_distances[selected_indices] = 0
+        # EXACTLY like your original: reset to the row of the last chosen point
+        check_distances = distance_matrix[farthest_point].clone()
 
-        # Break if all points have been selected
+        # zero-out already selected using a tensor index (not a python list)
+        sel_tensor = torch.stack(selected_indices)          # shape (k,)
+        check_distances.index_fill_(0, sel_tensor, 0)
+
         if len(selected_indices) == N:
             break
 
-    return selected_indices
+    return torch.stack(selected_indices)
 
 
 def calculate_index_mappings(query_index, S, device=None):
@@ -163,11 +162,13 @@ def calculate_index_mappings(query_index, S, device=None):
     Returns:
         Tensor of indices with the swapped order
     """
-    new_order = torch.arange(S)
-    new_order[0] = query_index
-    new_order[query_index] = 0
-    if device is not None:
-        new_order = new_order.to(device)
+    idx = torch.arange(S, device=device)
+    new_order = torch.where(idx == 0, query_index, idx)
+    new_order = torch.where(
+        idx == query_index,
+        torch.tensor(0, device=device, dtype=idx.dtype),
+        new_order
+    )
     return new_order
 
 
