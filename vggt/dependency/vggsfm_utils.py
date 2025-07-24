@@ -104,7 +104,6 @@ def generate_rank_by_dino(
 
     # Clean up all tensors and models to free memory
     del frame_feat, frame_feat_norm, similarity_matrix, distance_matrix
-    del dino_v2_model
     torch.cuda.empty_cache()
 
     return fps_idx
