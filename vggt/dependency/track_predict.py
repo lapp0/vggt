@@ -11,6 +11,7 @@ from .vggsfm_utils import *
 
 def predict_tracks(
     dinov2_model,
+    tracker,
     images,
     conf=None,
     points_3d=None,
@@ -53,8 +54,6 @@ def predict_tracks(
     """
 
     device = images.device
-    dtype = images.dtype
-    tracker = build_vggsfm_tracker().to(device, dtype)
 
     # Find query frames
     query_frame_indexes = generate_rank_by_dino(dinov2_model, images, query_frame_num=query_frame_num, device=device)
