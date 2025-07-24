@@ -10,6 +10,7 @@ from .vggsfm_utils import *
 
 
 def predict_tracks(
+    dinov2_model,
     images,
     conf=None,
     points_3d=None,
@@ -56,12 +57,14 @@ def predict_tracks(
     tracker = build_vggsfm_tracker().to(device, dtype)
 
     # Find query frames
-    query_frame_indexes = generate_rank_by_dino(images, query_frame_num=query_frame_num, device=device)
+    query_frame_indexes = generate_rank_by_dino(dinov2_model, images, query_frame_num=query_frame_num, device=device)
 
     # Add the first image to the front if not already present
-    if 0 in query_frame_indexes:
-        query_frame_indexes.remove(0)
-    query_frame_indexes = [0, *query_frame_indexes]
+    query_frame_indexes = torch.cat(
+        [torch.zeros(1, dtype=torch.long, device=device),
+         query_frame_indexes[query_frame_indexes != 0]],
+        dim=0,
+    )
 
     # TODO: add the functionality to handle the masks
     keypoint_extractors = initialize_feature_extractors(
@@ -175,7 +178,7 @@ def _forward_on_query(
     # Extract the color at the keypoint locations
     query_points_long = query_points.squeeze(0).round().long()
     pred_color = images[query_index][:, query_points_long[:, 1], query_points_long[:, 0]]
-    pred_color = (pred_color.permute(1, 0).cpu().numpy() * 255).astype(np.uint8)
+    pred_color = (pred_color.permute(1, 0) * 255).to(torch.uint8)
 
     # Query the confidence and points_3d at the keypoint locations
     if (conf is not None) and (points_3d is not None):
@@ -185,7 +188,7 @@ def _forward_on_query(
         scale = conf.shape[-1] / width
 
         query_points_scaled = (query_points.squeeze(0) * scale).round().long()
-        query_points_scaled = query_points_scaled.cpu().numpy()
+        query_points_scaled = query_points_scaled
 
         pred_conf = conf[query_index][query_points_scaled[:, 1], query_points_scaled[:, 0]]
         pred_point_3d = points_3d[query_index][query_points_scaled[:, 1], query_points_scaled[:, 0]]
@@ -223,8 +226,8 @@ def _forward_on_query(
 
     pred_track, pred_vis = switch_tensor_order([pred_track, pred_vis], reorder_index, dim=1)
 
-    pred_track = pred_track.squeeze(0).float().cpu().numpy()
-    pred_vis = pred_vis.squeeze(0).float().cpu().numpy()
+    pred_track = pred_track.squeeze(0).float()
+    pred_vis = pred_vis.squeeze(0).float()
 
     return pred_track, pred_vis, pred_conf, pred_point_3d, pred_color
 
