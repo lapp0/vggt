@@ -102,11 +102,11 @@ def predict_tracks(
             device,
         )
 
-        pred_tracks.append(pred_track)
-        pred_vis_scores.append(pred_vis)
-        pred_confs.append(pred_conf)
-        pred_points_3d.append(pred_point_3d)
-        pred_colors.append(pred_color)
+        pred_tracks.append(pred_track.cpu().numpy())
+        pred_vis_scores.append(pred_vis.cpu().numpy())
+        pred_confs.append(pred_conf.cpu().numpy())
+        pred_points_3d.append(pred_point_3d.cpu().numpy())
+        pred_colors.append(pred_color.cpu().numpy())
 
     if complete_non_vis:
         pred_tracks, pred_vis_scores, pred_confs, pred_points_3d, pred_colors = _augment_non_visible_frames(
