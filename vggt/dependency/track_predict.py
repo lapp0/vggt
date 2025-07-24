@@ -55,6 +55,12 @@ def predict_tracks(
 
     device = images.device
 
+    # ensure on gpu
+    if conf is not None:
+        conf = torch.as_tensor(conf, device=device)
+    if points_3d is not None:
+        points_3d = torch.as_tensor(points_3d, device=device)
+
     # Find query frames
     query_frame_indexes = generate_rank_by_dino(dinov2_model, images, query_frame_num=query_frame_num, device=device)
 
