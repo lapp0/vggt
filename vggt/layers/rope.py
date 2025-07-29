@@ -83,7 +83,7 @@ class RotaryPositionEmbedding2D(nn.Module):
         self.scaling_factor = scaling_factor
         self.frequency_cache: Dict[Tuple, Tuple[torch.Tensor, torch.Tensor]] = {}
 
-    @torch.compile(dynamic=True)
+    @torch._dynamo.disable
     def _compute_frequency_components(
         self, dim: int, seq_len: int, device: torch.device, dtype: torch.dtype
     ) -> Tuple[torch.Tensor, torch.Tensor]:
